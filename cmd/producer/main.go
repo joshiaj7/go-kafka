@@ -6,20 +6,17 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 )
 
-var topic = "my-topic"
+func produce(ctx context.Context, topic string, partition int) {
 
-func produce(ctx context.Context) {
-	// make a writer that produces to topic-A, using the least-bytes distribution
-	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers:  []string{"localhost:9092"},
-		Topic:    topic,
-		Balancer: &kafka.LeastBytes{},
-	})
+	// create topic
+	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, partition)
+	if err != nil {
+		log.Fatal("failed to dial leader:", err)
+	}
 
-	err := w.WriteMessages(ctx,
+	_, err = conn.WriteMessages(
 		kafka.Message{
 			Key:   []byte("Key-A"),
 			Value: []byte("Hello World!"),
@@ -37,32 +34,6 @@ func produce(ctx context.Context) {
 		log.Fatal("failed to write messages:", err)
 	}
 
-	if err := w.Close(); err != nil {
-		log.Fatal("failed to close writer:", err)
-	}
-
-}
-
-func defaultWriter() {
-	partition := 0
-
-	// create topic
-	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, partition)
-	if err != nil {
-		log.Fatal("failed to dial leader:", err)
-	}
-
-	// set the time of writen message to expire
-	conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
-	_, err = conn.WriteMessages(
-		kafka.Message{Value: []byte("one!")},
-		kafka.Message{Value: []byte("two!")},
-		kafka.Message{Value: []byte("three!")},
-	)
-	if err != nil {
-		log.Fatal("failed to write messages:", err)
-	}
-
 	if err := conn.Close(); err != nil {
 		log.Fatal("failed to close writer:", err)
 	}
@@ -71,8 +42,15 @@ func defaultWriter() {
 func main() {
 	fmt.Println("Producer Here")
 
-	// defaultWriter()
-
+	topic1 := "topic-1"
+	topic2 := "topic-2"
+	topic3 := "topic-3"
 	ctx := context.Background()
-	produce(ctx)
+
+	produce(ctx, topic1, 0)
+	fmt.Println("topic 1 published")
+	produce(ctx, topic2, 0)
+	fmt.Println("topic 2 published")
+	produce(ctx, topic3, 0)
+	fmt.Println("topic 3 published")
 }

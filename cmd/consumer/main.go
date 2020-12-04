@@ -6,17 +6,14 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 )
 
-var topic = "my-topic"
-
-func consume(ctx context.Context) {
+func consume(ctx context.Context, topic string, partition int) {
 	// make a new reader that consumes from topic-A, partition 0, at offset 42
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:   []string{"localhost:9092"},
 		Topic:     topic,
-		Partition: 0,
+		Partition: partition,
 		GroupID:   "consumer-1",
 		MinBytes:  10e3, // 10KB
 		MaxBytes:  10e6, // 10MB
@@ -29,7 +26,8 @@ func consume(ctx context.Context) {
 		if err != nil {
 			break
 		}
-		fmt.Printf("message at offset %d: %s = %s\n", m.Offset, string(m.Key), string(m.Value))
+		// fmt.Printf("message at offset %d: %s = %s\n", m.Offset, string(m.Key), string(m.Value))
+		fmt.Printf("Topic: %s, \nPartition: %d, \nOffset: %d, \nKey: %s, \nValue: %s, \nHeader: %v\n\n", m.Topic, m.Partition, m.Offset, string(m.Key), string(m.Value), m.Headers)
 	}
 
 	if err := r.Close(); err != nil {
@@ -38,42 +36,15 @@ func consume(ctx context.Context) {
 
 }
 
-func defaultConsume() {
-	// to consume messages
-	partition := 0
-
-	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, partition)
-	if err != nil {
-		log.Fatal("failed to dial leader:", err)
-	}
-
-	// set the interval to read messages
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	batch := conn.ReadBatch(10e3, 1e6) // fetch 10KB min, 1MB max
-
-	b := make([]byte, 10e3) // 10KB max per message
-	for {
-		_, err := batch.Read(b)
-		if err != nil {
-			break
-		}
-		fmt.Println(string(b))
-	}
-
-	if err := batch.Close(); err != nil {
-		log.Fatal("failed to close batch:", err)
-	}
-
-	if err := conn.Close(); err != nil {
-		log.Fatal("failed to close connection:", err)
-	}
-}
-
 func main() {
 	fmt.Println("Consumer Here")
 
-	// defaultConsume()
+	topic1 := "topic-1"
+	topic2 := "topic-2"
+	topic3 := "topic-3"
 
 	ctx := context.Background()
-	consume(ctx)
+	go consume(ctx, topic1, 0)
+	go consume(ctx, topic2, 0)
+	consume(ctx, topic3, 0)
 }
